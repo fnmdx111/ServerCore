@@ -1,9 +1,12 @@
 # encoding: utf-8
-from itertools import product, combinations
+import base64
+import hashlib
+from itertools import product
 import logging
 import os
 import uuid
-from sqlalchemy import Column, String, LargeBinary, create_engine
+from sqlalchemy import Column, String, LargeBinary, create_engine, Integer
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import cv2
@@ -16,13 +19,15 @@ Base = declarative_base()
 class JPEGFileEntry(Base):
     __tablename__ = 'entries'
 
-    id = Column(String, primary_key=True)
+    _id = Column(Integer, primary_key=True)
     feature_vector = Column(LargeBinary)
-    filename = Column(String)
+    uuid = Column(String)
+    fingerprint = Column(String, unique=True)
 
-    def __init__(self, filename, feature_vector):
+    def __init__(self, uuid, feature_vector, fingerprint):
         self.feature_vector = feature_vector
-        self.filename = filename
+        self.uuid = uuid
+        self.fingerprint = fingerprint
 
 
     def __repr__(self):
@@ -34,12 +39,14 @@ class ServerCore(object):
     DCT_CONTAINER_TYPE = np.int64
     GRAYSCALE_CONTAINER_TYPE = np.int16
 
-    def __init__(self, db_path='db.sqlite',
+    def __init__(self, db_path='entries.db',
                        (size_h, size_w)=(480, 640)):
         self.db_path = db_path
 
-        self.engine = create_engine('sqlite:///%s' % self.db_path)
+        print os.getcwd()
+        self.engine = create_engine('sqlite:///%s/%s' % (os.getcwd(), self.db_path))
         self.session = sessionmaker(bind=self.engine)()
+        Base.metadata.create_all(self.engine)
 
         self.size_h = size_h
         self.size_w = size_w
@@ -53,9 +60,14 @@ class ServerCore(object):
         self.logger = logging.getLogger(__name__)
 
 
-    def add_entry(self, uuid, feature_vector):
-        entry = JPEGFileEntry(uuid, feature_vector)
-        self.session.add(entry)
+    def add_entry(self, uuid, feature_vector, fingerprint):
+        try:
+            entry = JPEGFileEntry(uuid, feature_vector, fingerprint)
+            self.session.add(entry)
+            self.session.commit()
+            return True
+        except IntegrityError:
+            return False
 
 
     def _dct_img(self, img):
@@ -71,34 +83,43 @@ class ServerCore(object):
 
 
     def _extract_feat_vec(self, img, n=128):
+        img = img.reshape((self.size_h * self.size_w / 64, 8, 8))
+
         return np.array(sorted(map(lambda dct: dct[0, 0], img),
                                reverse=True)[:n if n else None])
 
 
-    def add_jpeg_file(self, img):
+    def add_jpeg_file(self, data):
         """@param img:numpy.ndarray: grayscale matrix"""
-        dct_img = self._dct_img(img)
+        img = self.from_raw_to_grayscale(base64.standard_b64decode(data))
         feature_vector = self._extract_feat_vec(self._dct_img(img))
 
-        filename = '%s.jpg' % uuid.uuid1().get_hex()
-        self.add_entry(filename, feature_vector.dumps())
-        cv2.imwrite('images/%s' % filename, img)
+        uuid_gen = uuid.uuid1().get_hex()
+        succeeded = self.add_entry(uuid_gen,
+                           feature_vector.dumps(),
+                           hashlib.sha1(data).hexdigest())
+        if not succeeded:
+            return False
+
+        cv2.imwrite('images/%s.jpg' % uuid_gen, img)
+        return True
 
 
-    def retrieve(self, img, n=10):
+    def retrieve(self, data, n=10):
         """@param img:numpy.ndarray: grayscale matrix"""
+        img = self.from_raw_to_grayscale(base64.standard_b64decode(data))
         r_fv = self._extract_feat_vec(self._dct_img(img))
+
         features = []
-        query = self.session.query(JPEGFileEntry)
-        for entry in self.session.connection().execute(query):
-            features.append((entry.filename,
+        for entry in self.session.query(JPEGFileEntry):
+            features.append((entry.uuid,
                              np.loads(entry.feature_vector)))
 
         norms = []
         for fn, v in features:
-            norms.append((np.linalg.norm(r_fv - v)))
+            norms.append((fn, np.linalg.norm(r_fv - v)))
 
-        return [fn for fn, _ in sorted(norms, key=lambda (n, _): n)[:n]]
+        return [fn for fn, _ in sorted(norms, key=lambda (_, n): n)[:n]]
 
 
     def gen_tempfile(self):

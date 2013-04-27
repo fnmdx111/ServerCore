@@ -1,6 +1,4 @@
 import base64
-import uuid
-import cv2
 from flask import Flask, request, jsonify
 from core import ServerCore
 
@@ -17,25 +15,22 @@ def hail():
 @app.route('/add', methods=['POST'])
 def add_to_db():
     data = request.form['img']
-    img = app.core.from_raw_to_grayscale(base64.standard_b64decode(data))
+    status = app.core.add_jpeg_file(data)
 
-    app.core.add_jpeg_file(img)
-
-    return jsonify({'status': 'ok'})
+    return jsonify({'status': 'ok' if status else 'fail'})
 
 
 @app.route('/send', methods=['POST'])
 def retrieve():
     data = request.form['img']
     max_count = int(request.form['max_count'])
-    img = app.core.from_raw_to_grayscale(base64.standard_b64decode(data))
 
-    results = app.core.retrieve(img, n=max_count)
+    results = app.core.retrieve(data, n=max_count)
 
     return jsonify({
         'status': 'ok',
         'results': map(
-            lambda fn: base64.standard_b64encode(open('images/%s' % fn,
+            lambda uuid: base64.standard_b64encode(open('images/%s.jpg' % uuid,
                                                       'rb').read()),
             results
         )
