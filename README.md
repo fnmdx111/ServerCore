@@ -17,6 +17,12 @@ Goal
 * store feature vector's binary representation in sqlite, use uuid as filename and primary key
 
 
+TODO
+----
+
+* add distance into the result
+
+
 License
 -------
 
