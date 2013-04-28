@@ -20,7 +20,7 @@ Goal
 TODO
 ----
 
-* add distance into the result
+* add distance into the result (done)
 * enrich column, such as ownership(search in specified user id), description of image, etc.
 * fix current working directory issue (fixed by using os.path.dirname(__file__))
 

@@ -50,6 +50,8 @@ class ServerCore(object):
         self.session = sessionmaker(bind=self.engine)()
         Base.metadata.create_all(self.engine)
 
+        self.img_store_path = os.path.join(self.cwd, 'img_store')
+
         self.size_h = size_h
         self.size_w = size_w
         self.size_b_h = size_h / 8
@@ -67,9 +69,11 @@ class ServerCore(object):
             entry = JPEGFileEntry(uuid, feature_vector, fingerprint)
             self.session.add(entry)
             self.session.commit()
-            return True
-        except IntegrityError:
-            return False
+            return True, 'ok'
+        except IntegrityError as err:
+            self.session.rollback()
+            if 'column fingerprint is not unique' in err.message:
+                return False, 'This file is already in server.'
 
 
     def _dct_img(self, img):
@@ -96,14 +100,13 @@ class ServerCore(object):
         feature_vector = self._extract_feat_vec(self._dct_img(img))
 
         uuid_gen = uuid.uuid1().get_hex()
-        succeeded = self.add_entry(uuid_gen,
+        flag, msg = self.add_entry(uuid_gen,
                                    feature_vector.dumps(),
                                    hashlib.sha1(data).hexdigest())
-        if not succeeded:
-            return False
+        if flag:
+            cv2.imwrite('%s/img_store/%s.jpg' % (self.cwd, uuid_gen), img)
 
-        cv2.imwrite('%s/img_store/%s.jpg' % (self.cwd, uuid_gen), img)
-        return True
+        return msg
 
 
     def retrieve(self, data, n=10):
@@ -119,28 +122,11 @@ class ServerCore(object):
         for fn, v in features:
             norms.append((fn, np.linalg.norm(r_fv - v)))
 
-        return [fn for fn, _ in sorted(norms, key=lambda (_, n): n)[:n]]
-
-
-    def gen_tempfile(self):
-        fn = '%s.jpg' % uuid.uuid1().get_hex()
-        return open(fn, 'wb'), fn
-
-
-    def safe_delete(self, filename):
-        if os.path.isfile(filename):
-            os.remove(filename)
+        return [(fn, dist) for fn, dist in sorted(norms, key=lambda (_, n): n)[:n]]
 
 
     def from_raw_to_grayscale(self, raw):
-        fp, fn = self.gen_tempfile()
-        print >>fp, raw
-        fp.close()
-
-        img = cv2.imread(fn, cv2.CV_LOAD_IMAGE_GRAYSCALE)
-
-        self.safe_delete(fn)
-
-        return img
+        return cv2.imdecode(np.fromstring(raw, dtype=np.uint8),
+                           cv2.CV_LOAD_IMAGE_GRAYSCALE)
 
 
