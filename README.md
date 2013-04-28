@@ -1,5 +1,5 @@
-ServerCore
-==========
+Server Core for Secure Image Retrieval System
+=============================================
 
 Required Library
 ----------------
@@ -21,6 +21,7 @@ TODO
 ----
 
 * add distance into the result
+* enrich column, such as ownership(search in specified user id), description of image, etc.
 
 
 License
