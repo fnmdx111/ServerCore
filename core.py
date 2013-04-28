@@ -31,7 +31,7 @@ class JPEGFileEntry(Base):
 
 
     def __repr__(self):
-        return '<JPEGFileEntry %s>' % self.id
+        return '<JPEGFileEntry %s %s %s>' % (self.id, self.uuid, self.fingerprint)
 
 
 
@@ -39,12 +39,14 @@ class ServerCore(object):
     DCT_CONTAINER_TYPE = np.int64
     GRAYSCALE_CONTAINER_TYPE = np.int16
 
-    def __init__(self, db_path='entries.db',
-                       (size_h, size_w)=(480, 640)):
+    def __init__(self,
+                 db_path='entries.db',
+                 (size_h, size_w)=(480, 640),
+                 path=os.path.dirname(__file__)):
         self.db_path = db_path
+        self.cwd = path
 
-        print os.getcwd()
-        self.engine = create_engine('sqlite:///%s/%s' % (os.getcwd(), self.db_path))
+        self.engine = create_engine('sqlite:///%s/%s' % (self.cwd, self.db_path))
         self.session = sessionmaker(bind=self.engine)()
         Base.metadata.create_all(self.engine)
 
@@ -90,23 +92,21 @@ class ServerCore(object):
 
 
     def add_jpeg_file(self, data):
-        """@param img:numpy.ndarray: grayscale matrix"""
         img = self.from_raw_to_grayscale(base64.standard_b64decode(data))
         feature_vector = self._extract_feat_vec(self._dct_img(img))
 
         uuid_gen = uuid.uuid1().get_hex()
         succeeded = self.add_entry(uuid_gen,
-                           feature_vector.dumps(),
-                           hashlib.sha1(data).hexdigest())
+                                   feature_vector.dumps(),
+                                   hashlib.sha1(data).hexdigest())
         if not succeeded:
             return False
 
-        cv2.imwrite('images/%s.jpg' % uuid_gen, img)
+        cv2.imwrite('%s/img_store/%s.jpg' % (self.cwd, uuid_gen), img)
         return True
 
 
     def retrieve(self, data, n=10):
-        """@param img:numpy.ndarray: grayscale matrix"""
         img = self.from_raw_to_grayscale(base64.standard_b64decode(data))
         r_fv = self._extract_feat_vec(self._dct_img(img))
 

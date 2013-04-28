@@ -1,8 +1,8 @@
 Server Core for Secure Image Retrieval System
 =============================================
 
-Required Library
-----------------
+Requirement
+-----------
 
 * opencv - image manipulation
 * numpy - backend for opencv
@@ -22,7 +22,7 @@ TODO
 
 * add distance into the result
 * enrich column, such as ownership(search in specified user id), description of image, etc.
-
+* fix current working directory issue (fixed by using os.path.dirname(__file__))
 
 License
 -------
