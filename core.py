@@ -63,17 +63,19 @@ class ServerCore(object):
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
 
+        self.results = []
+
 
     def add_entry(self, uuid, feature_vector, fingerprint):
         try:
             entry = JPEGFileEntry(uuid, feature_vector, fingerprint)
             self.session.add(entry)
             self.session.commit()
-            return True, 'ok'
+            return True, 'ok', ''
         except IntegrityError as err:
             self.session.rollback()
             if 'column fingerprint is not unique' in err.message:
-                return False, 'This file is already in server.'
+                return False, 'err', 'This file is already in server.'
 
 
     def _dct_img(self, img):
@@ -100,16 +102,16 @@ class ServerCore(object):
         feature_vector = self._extract_feat_vec(self._dct_img(img))
 
         uuid_gen = uuid.uuid1().get_hex()
-        flag, msg = self.add_entry(uuid_gen,
-                                   feature_vector.dumps(),
-                                   hashlib.sha1(data).hexdigest())
+        flag, status, msg = self.add_entry(uuid_gen,
+                                           feature_vector.dumps(),
+                                           hashlib.sha1(data).hexdigest())
         if flag:
             cv2.imwrite('%s/img_store/%s.jpg' % (self.cwd, uuid_gen), img)
 
-        return msg
+        return status, msg
 
 
-    def retrieve(self, data, n=10):
+    def prepare_results(self, data, n=10):
         img = self.from_raw_to_grayscale(base64.standard_b64decode(data))
         r_fv = self._extract_feat_vec(self._dct_img(img))
 
@@ -122,7 +124,13 @@ class ServerCore(object):
         for fn, v in features:
             norms.append((fn, np.linalg.norm(r_fv - v)))
 
-        return [(fn, dist) for fn, dist in sorted(norms, key=lambda (_, n): n)[:n]]
+        self.results = sorted(norms, key=lambda (_, n): n)[:n]
+
+        return len(self.results)
+
+
+    def retrieve(self):
+        return self.results.pop(0)
 
 
     def from_raw_to_grayscale(self, raw):

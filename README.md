@@ -24,6 +24,13 @@ TODO
 * enrich column, such as ownership(search in specified user id), description of image, etc.
 * fix current working directory issue (fixed by using os.path.dirname(__file__))
 
+
+Note
+----
+
+Test database file and corresponding images can be found [here](https://www.dropbox.com/s/wts4yeiccsj9ro7/ServerCore.7z).
+
+
 License
 -------
 
