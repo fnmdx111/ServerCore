@@ -1,5 +1,6 @@
 import base64
 import os
+import timeit
 from flask import Flask, request, jsonify, session
 import time
 from core import ServerCore
@@ -108,11 +109,14 @@ def retrieve_prepare():
     max_count = int(request.form['max_count'])
 
     status = 'ok'
+    start = timeit.default_timer()
     result = core.prepare_results(data, n=max_count)
+    end = timeit.default_timer()
 
     return jsonify({
         'status': status,
-        'result': result
+        'result': result,
+        'time_elapsed': '%2.5f' % (end - start)
     })
 
 

@@ -36,8 +36,8 @@ class JPEGFileEntry(Base):
 
 
 class ServerCore(object):
-    DCT_CONTAINER_TYPE = np.int64
-    GRAYSCALE_CONTAINER_TYPE = np.int16
+    DCT_CONTAINER_TYPE = np.float64
+    GRAYSCALE_CONTAINER_TYPE = np.uint8
 
     def __init__(self,
                  db_path='entries.db',
@@ -130,11 +130,15 @@ class ServerCore(object):
 
 
     def retrieve(self):
-        return self.results.pop(0)
+        if self.results:
+            return self.results.pop(0)
+        else:
+            return '', None
 
 
     def from_raw_to_grayscale(self, raw):
-        return cv2.imdecode(np.fromstring(raw, dtype=np.uint8),
-                           cv2.CV_LOAD_IMAGE_GRAYSCALE)
+        return cv2.imdecode(np.fromstring(raw,
+                                          dtype=self.GRAYSCALE_CONTAINER_TYPE),
+                            cv2.CV_LOAD_IMAGE_GRAYSCALE)
 
 
