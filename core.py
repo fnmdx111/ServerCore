@@ -37,7 +37,7 @@ class JPEGFileEntry(Base):
 
 class ServerCore(object):
     DCT_CONTAINER_TYPE = np.float64
-    GRAYSCALE_CONTAINER_TYPE = np.uint8
+    GRAYSCALE_CONTAINER_TYPE = np.int16
 
     def __init__(self,
                  db_path='entries.db',
@@ -80,9 +80,9 @@ class ServerCore(object):
 
     def _dct_img(self, img):
         ret = np.ndarray((self.size_b_h, self.size_b_w),
-                         dtype=np.dtype((ServerCore.DCT_CONTAINER_TYPE,
+                         dtype=np.dtype((self.DCT_CONTAINER_TYPE,
                                          (8, 8))))
-        mat = np.zeros((8, 8), dtype=np.float64)
+        mat = np.zeros((8, 8), dtype=self.DCT_CONTAINER_TYPE)
         for r, c in self.block_coordinates:
             mat[:8, :8] = img[r:r + 8, c:c + 8]
             ret[r / 8, c / 8][:, :] = cv2.dct(mat)
@@ -138,7 +138,7 @@ class ServerCore(object):
 
     def from_raw_to_grayscale(self, raw):
         return cv2.imdecode(np.fromstring(raw,
-                                          dtype=self.GRAYSCALE_CONTAINER_TYPE),
+                                          dtype=np.uint8),
                             cv2.CV_LOAD_IMAGE_GRAYSCALE)
 
 
