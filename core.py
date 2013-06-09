@@ -11,6 +11,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import cv2
 import numpy as np
+import sys
 
 
 Base = declarative_base()
@@ -41,10 +42,9 @@ class ServerCore(object):
 
     def __init__(self,
                  db_path='entries.db',
-                 (size_h, size_w)=(480, 640),
-                 path=os.path.dirname(__file__)):
+                 (size_h, size_w)=(480, 640)):
         self.db_path = db_path
-        self.cwd = path
+        self.cwd = os.path.dirname(__file__).decode(sys.getfilesystemencoding())
 
         self.engine = create_engine('sqlite:///%s/%s' % (self.cwd, self.db_path))
         self.session = sessionmaker(bind=self.engine)()

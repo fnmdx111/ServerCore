@@ -1,8 +1,8 @@
+# encoding: utf-8
 import base64
 import os
 import timeit
 from flask import Flask, request, jsonify, session
-import time
 from core import ServerCore
 
 app = Flask(__name__)
@@ -14,7 +14,6 @@ app.cores = {}
 
 def gen_db_path(client_id):
     return 'entries.db'
-
 
 
 @app.route('/', methods=['POST'])
